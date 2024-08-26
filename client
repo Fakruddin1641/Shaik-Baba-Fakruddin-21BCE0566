@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess-like Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #1d1d1d; color: #ffffff; text-align: center; }
+        #board { display: grid; grid-template-columns: repeat(5, 50px); grid-template-rows: repeat(5, 50px); gap: 5px; margin: 20px auto; }
+        .cell { width: 50px; height: 50px; background-color: #333; border: 1px solid #555; display: flex; justify-content: center; align-items: center; font-size: 14px; cursor: pointer; }
+        .cell.A { color: red; }
+        .cell.B { color: blue; }
+        #status { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Advanced Chess-like Game</h1>
+    <div id="board"></div>
+    <div id="status">Waiting for another player...</div>
+
+    <script>
+        let ws = new WebSocket('ws://localhost:8080');
+        let playerId = null;
+        let gameState = null;
+
+        ws.onmessage = (message) => {
+            const data = JSON.parse(message.data);
+
+            if (data.type === 'player_id') {
+                playerId = data.id;
+                document.getElementById('status').innerText = You are Player ${playerId};
+            } else if (data.type === 'game_update') {
+                gameState = data.state;
+                renderBoard();
+                if (gameState.turn === playerId) {
+                    document.getElementById('status').innerText = "Your Turn";
+                } else {
+                    document.getElementById('status').innerText = "Opponent's Turn";
+                }
+            }
+        };
+
+        const renderBoard = () => {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (gameState.grid[i][j]) {
+                        const [player, char] = gameState.grid[i][j].split('-');
+                        cell.classList.add(player);
+                        cell.innerText = char;
+                    }
+                    board.appendChild(cell);
+                }
+            }
+        };
+
+        document.getElementById('board').addEventListener('click', (event) => {
+            if (gameState.turn !== playerId || !event.target.classList.contains('cell')) return;
+
+            const [row, col] = [...event.target.parentElement.children].indexOf(event.target).toString().split('');
+
+            if (gameState.grid[row][col] && gameState.grid[row][col].startsWith(playerId)) {
+                // Prompt move direction (could be improved)
+                const direction = prompt("Enter move direction (L, R, F, B):");
+                if (direction) {
+                    ws.send(JSON.stringify({ type: 'move', playerId, move: ${gameState.grid[row][col].split('-')[1]}:${direction} }));
+                }
+            }
+        });
+    </script>
+</body>
+</html>
